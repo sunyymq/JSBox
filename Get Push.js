@@ -1,5 +1,5 @@
     /*
-    Pushbullet
+    Get Push
     快速接收最新的一条 Push
     by Neurogram
     */
