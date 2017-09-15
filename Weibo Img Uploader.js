@@ -1,8 +1,8 @@
    /*
-      Weibo Img Uploader
-      通过微博图片链接查找发图人微博
-      by Neurogram
-      */
+   Weibo Img Uploader
+   通过微博图片链接查找发图人微博
+   by Neurogram
+   */
 
    var url = $context.safari ? $context.safari.items.location.href : $context.link || $clipboard.text
    var urlTest = /sinaimg.cn/.test(url)
