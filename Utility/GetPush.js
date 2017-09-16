@@ -11,7 +11,7 @@
 
     $http.request({
       method: "GET",
-      url: "https://api.pushbullet.com/v2/pushes&limit=" + pushLimit,
+      url: "https://api.pushbullet.com/v2/pushes?active=true&limit=" + pushLimit,
       header: {
         "Access-Token": apiKey
       },
