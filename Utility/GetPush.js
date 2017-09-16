@@ -16,7 +16,7 @@
         "Access-Token": apiKey
       },
       handler: function(resp) {
-        var pushResults = resp.data.pushes
+        pushResults = resp.data.pushes
         var pushItems = pushResults.length
         if (pushItems == 0) {
           $ui.alert("Sorry, no pushes here")
