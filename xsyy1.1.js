@@ -1,4 +1,4 @@
-var version = 1.1;
+var version = 1.3;
 $ui.render({
   type: "view",
   props: {
@@ -32,7 +32,7 @@ $ui.render({
           props: {
             height: 30,
             text: "v" + version,
-            textColor:$color("#cccccc"),
+            textColor: $color("#cccccc"),
             font: $font(14),
             align: $align.center
           }
@@ -224,7 +224,7 @@ function bookDetailView(bookid, mode) {
             props: {
               id: "detailCover",
               radius: 5,
-              src: encodeURI("http://statics.zhuishushenqi.com" + $text.URLDecode(resp.data.cover))
+              src: cover(resp.data.cover)
             },
             layout: function(make, view) {
               make.left.top.inset(15)
@@ -1267,7 +1267,6 @@ var template = `
 <style type="text/css">	
 body{
 background-color:{{BGCOLOR}};
-font-family: <System>;
 margin-top:0px;
 margin-bottom:0px;
 margin-left:15px;
@@ -1279,20 +1278,19 @@ p{
 margin:0px;
 padding:0px;
 border:0px;
-line-height:35px;
+line-height:30px;
 text-indent:2em;
 letter-spacing:2px;
 }
 </style>
 </head>
 <body>
-<div id="text" style="font-size:22px;line-height:35px;">
-<p><center>{{TITLE}}</center></p>
+<div id="text" style="font-size:21px;line-height:30px;">
 {{CONTENT}}
 </div>
 </body>
 <script>
-var scrollHeight = 595;
+var scrollHeight = {{WINDOWHEIGHT}};
 function goTo(num){
 scrollTo(0, (num - 1)* scrollHeight);
 };
@@ -1317,6 +1315,20 @@ $notify("pageCount", newPageHeight)
 
 const BgColor = { '羊皮棕': '#a28a6a', '豆沙绿': '#c7edcc', '杏仁黄': '#ccc8ad', '玫瑰棕': '#a27b7b', '白银灰': '#eeeeee' }
 
+function changeTitleBarColor(color) {
+  colorCode = color || settingData.readerBgColor;
+  var app = $app.info.bundleID.split(".").pop();
+  switch (app) {
+    case "pin":
+      $ui.window.super.views[2].bgcolor = $color(colorCode);
+      break;
+    case "jsbox":
+      $ui.window.super.super.super.views[1].views[0].bgcolor = $color(colorCode);
+      break
+
+  }
+}
+
 function reader() {
   $ui.push({
     type: "view",
@@ -1324,18 +1336,47 @@ function reader() {
       title: selectBookName
     },
     views: [{
+        type: "text",
+        props: {
+          bgcolor: $color(settingData.readerBgColor),
+          id: "readerPage",
+          textColor: $color("darkGray"),
+          font: $font(12),
+          insets: $insets(4, 0, 4, 0),
+          align: $align.center
+        },
+        layout: function(make) {
+          make.bottom.left.right.inset(0)
+          make.height.equalTo(20)
+        }
+      }, {
+        type: "text",
+        props: {
+          bgcolor: $color(settingData.readerBgColor),
+          id: "readerTitle",
+          textColor: $color("darkGray"),
+          font: $font(14),
+          insets: $insets((readerMargin - 34) / 2, 12, (readerMargin - 34) / 2, 0)
+        },
+        layout: function(make) {
+          make.top.left.right.inset(0)
+          make.height.equalTo(readerMargin - 20)
+        }
+      }, {
         type: "web",
         props: {
           id: "reader",
           userInteractionEnabled: false
         },
-        layout: function(make, view) {
-          make.top.inset(0)
-          make.left.right.bottom.inset(0)
+        layout: function(make) {
+          make.top.equalTo($("readerTitle").bottom)
+          make.bottom.equalTo($("readerPage").top)
+          make.left.right.inset(0)
         },
         events: {
           pageCount: function(obj) {
-            pageCount = obj / 595
+            pageCount = obj / readerHeight;
+            $("readerPage").text = selectPage + "/" + pageCount
           },
           debug: function(obj) {
             $ui.toast(obj)
@@ -1358,6 +1399,7 @@ function reader() {
           tapped(sender) {
             if (selectPage > 1) {
               selectPage--;
+              $("readerPage").text = selectPage + "/" + pageCount;
               $("reader").eval({
                 script: "pageNum--;goTo(pageNum)"
               });
@@ -1367,6 +1409,13 @@ function reader() {
               selectPage = 1;
               getChapterContent(selectChapter, true)
             };
+            readLogWrite();
+          },
+          longPressed(sender) {
+            $device.taptic(0);
+            selectChapter = selectChapter == 0 ? bookChapterData.length - 1 : selectChapter - 1;
+            selectPage = 1;
+            getChapterContent(selectChapter, true)
             readLogWrite();
           }
         }
@@ -1386,6 +1435,7 @@ function reader() {
           tapped(sender) {
             if (selectPage != pageCount) {
               selectPage++;
+              $("readerPage").text = selectPage + "/" + pageCount;
               $("reader").eval({
                 script: "pageNum++;goTo(pageNum)"
               });
@@ -1395,6 +1445,13 @@ function reader() {
               selectPage = 1;
               getChapterContent(selectChapter, true)
             };
+            readLogWrite();
+          },
+          longPressed(sender) {
+            $device.taptic(0);
+            selectChapter = selectChapter == bookChapterData.length - 1 ? 0 : selectChapter + 1;
+            selectPage = 1;
+            getChapterContent(selectChapter, true)
             readLogWrite();
           }
         }
@@ -1410,17 +1467,24 @@ function reader() {
         },
         events: {
           tapped(sender) {
-
             $ui.menu({
               items: Object.keys(BgColor),
               handler: function(title) {
                 $("reader").eval({
                   script: "theme('" + BgColor[title] + "')"
                 });
+                $("readerTitle").bgcolor = $color(BgColor[title]);
+                $("readerPage").bgcolor = $color(BgColor[title]);
                 settingData["readerBgColor"] = BgColor[title];
+                changeTitleBarColor(BgColor[title]);
                 settingDataWrite()
               }
             })
+          },
+          longPressed(sender) {
+            $device.taptic(0);
+            $("reader").html = html;
+            selectChapter--
           }
         }
       }
@@ -1542,6 +1606,9 @@ function chapterView() {
     ]
   });
   $("goto").rotate(1.57);
+  var windowHeight = $("chapterView").frame.height;
+  readerHeight = parseInt(windowHeight / 30 - 1) * 30;
+  readerMargin = windowHeight - readerHeight
 }
 
 // 获取小说源
@@ -1608,16 +1675,20 @@ function getChapterContent(row, mode) {
   var link = bookChapterData[row].link;
   var title = bookChapterData[row].title;
   var time = Math.round(new Date().getTime() / 1000) + 7200;
+  $ui.loading(true);
   $http.get({
-    url: "http://chapterup01.zhuishushenqi.com/chapter/" + $text.URLEncode(link) + "?t=" + time,
+    url: "http://chapterup02.zhuishushenqi.com/chapter/" + $text.URLEncode(link) + "?t=" + time,
     header: Header,
     handler: function(resp) {
+      $ui.loading(false);
       var chapter = formatContent(resp.data.chapter.body);
-      html = template.replace("{{TITLE}}", title).replace("{{CONTENT}}", chapter).replace("{{PAGE}}", selectPage).replace("{{BGCOLOR}}", settingData.readerBgColor);
+      html = template.replace("{{CONTENT}}", chapter).replace("{{PAGE}}", selectPage).replace("{{BGCOLOR}}", settingData.readerBgColor).replace("{{WINDOWHEIGHT}}", readerHeight);
       if (!mode) {
-        reader()
+        reader(readerMargin);
+        changeTitleBarColor()
       };
-      $("reader").html = html
+      $("readerTitle").text = title;
+      $("reader").html = html;
     }
   })
 }
@@ -1660,6 +1731,17 @@ function bookCaseUpdateCheck() {
       }
     })
   }
+}
+
+function cover(url) {
+  var raw = $text.URLDecode(url);
+  if (raw.endsWith("//")) {
+    $ui.toast(1)
+    var cover = "http://statics.zhuishushenqi.com" + raw + "-coverl"
+  } else {
+    var cover = "http://statics.zhuishushenqi.com" + raw + "/-coverl"
+  };
+  return cover
 }
 
 // 书架内小说更新时间格式化
@@ -1800,33 +1882,31 @@ function loadBookCaseData() {
 }
 
 //检测扩展更新
-function scriptVersionUpdate(){
+function scriptVersionUpdate() {
   $http.get({
-    url:"https://github.com/meiycs/Pin-for-iOS/raw/master/info",
-    handler:function(resp){
+    url: "https://github.com/meiycs/Pin-for-iOS/raw/master/info",
+    handler: function(resp) {
       var afterVersion = resp.data.reader.version;
       var msg = resp.data.reader.msg;
-      if(afterVersion>version){
+      if (afterVersion > version) {
         $ui.alert({
-          title:"检测到新的版本！",
-          message:"当前最新版本为v"+afterVersion+"，是否更新?\n更新完成后请退出至扩展列表重新启动新版本。\n"+msg,
-          actions:[{
-            title:"更新",
-            handler:function(){
-              var url = "pin://install?url=https://github.com/meiycs/Pin-for-iOS/raw/master/reader.js&name=小说阅读器"+afterVersion;
+          title: "检测到新的版本！",
+          message: "当前最新版本为v" + afterVersion + "，是否更新?\n更新完成后请退出至扩展列表重新启动新版本。\n" + msg,
+          actions: [{
+            title: "更新",
+            handler: function() {
+              var url = "pin://install?url=https://github.com/meiycs/Pin-for-iOS/raw/master/reader.js&name=小说阅读器" + afterVersion;
               $app.openURL(encodeURI(url));
               $app.close()
             }
-          },{
-            title:"取消"
-          }
-          ]
+          }, {
+            title: "取消"
+          }]
         })
-        }
+      }
     }
   })
 }
-
 
 // 启动
 function main() {
@@ -1863,7 +1943,7 @@ var BooksDataPath = "drive://ebook/books.json";
 var ConfigDataPath = "drive://ebook/config.json";
 // 请求UA
 var Header = {
-  "User-Agent": "YouShaQi/2.25.1 (iPhone; iOS 10.3.1; Scale/2.00)",
+  "User-Agent": "YouShaQi/2.26.31.0 (iPhone; iOS 10.3.1; Scale/2.00)",
   "X-User-Agent": "YouShaQi/2.25.1 (iPhone; iOS 10.3.1; Scale/2.00)"
 }
 
